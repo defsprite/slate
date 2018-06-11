@@ -110,7 +110,7 @@ curl -XPOST "https://api.releasebits.com/components/component-slug/deployments/"
 ```
 
 ```shell_session
-$ curl -XPOST "https://api.releasebits.com/components/component-slug/deployments"
+$ curl -XPOST "https://api.releasebits.com/components/component-slug/deployments?access_token=some-api-token&version=v1.2.3&result=success&stage=staging&host=host.example.com&code_name=Funky%20F%C3%BCnke&started_at=2018-05-27T13%3A15%3A30.311Z&finished_at=2018-05-27T13%3A15%3A31.191Z&meta_data[user_id]=metauser&meta_data[foo]=bar&commit_sha=b927e3797fc56fb8bc093d59ee7a624dafddadd2&tag=tag1.2.3&branch=release"
 ```
 
 > On success the above command returns JSON structured like this along with `201` status:
