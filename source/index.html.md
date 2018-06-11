@@ -2,10 +2,8 @@
 title: API Reference
 
 language_tabs: # must be one of https://git.io/vQNgJ
-  - shell
-  - ruby
-  - python
-  - javascript
+  - shell: curl (json)
+  - shell_session: curl (form)
 
 toc_footers:
   - <a href='#'>Sign Up for a Developer Key</a>
@@ -19,80 +17,146 @@ search: true
 
 # Introduction
 
-Welcome to the Kittn API! You can use our API to access Kittn API endpoints, which can get information on various cats, kittens, and breeds in our database.
+Welcome to the ReleseBits API! 
 
-We have language bindings in Shell, Ruby, and Python! You can view code examples in the dark area to the right, and you can switch the programming language of the examples with the tabs in the top right.
+The purpose of this API is to easily consume events that occur in any [Continuous Integration](https://en.wikipedia.org/wiki/Continuous_integration) 
+and [Delivery](https://en.wikipedia.org/wiki/Continuous_delivery) process in order to pass them on to various external 
+APIs: 
 
-This example API documentation page was created with [Slate](https://github.com/lord/slate). Feel free to edit it and use it as a base for your own API's documentation.
+  - Grafana
+  - Sentry
+  - Bugsnag
+  - Newrelic
+  - Custom Webhooks
+
+It is also planned to soon provide endpoints for Prometheus metrics or build badges based on these events.
+
+# Terminology 
+
+Most software applications will be built from one or more **components** - a monolithic app usually has only very few, whereas in a microservice approach 
+there are a lot of individual ones. 
+
+The sucessful creation of a new **version** of given a component is called a **build**. Builds can have errors for 
+various reasons thus not creating new versions of the component.
+
+Putting a different version of a component onto a live system is called a **deployment**. Any group of at least one deployment forms a **release**, 
+which should enclose a set of meaningful changes for human stakeholders to the software.
 
 # Authentication
 
 > To authorize, use this code:
 
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-```
-
 ```shell
-# With shell, you can just pass the correct header with each request
-curl "api_endpoint_here"
-  -H "Authorization: meowmeowmeow"
+# Passing via Authorization header with each request
+curl -H "Authorization: some-api-token" \
+     "https://api.releasebits.com/"
+
+# Passing via request parameter with each request
+curl "https://api.releasebits.com/?access_token=some-api-token"
 ```
 
-```javascript
-const kittn = require('kittn');
-
-let api = kittn.authorize('meowmeowmeow');
+```shell_session
+$ curl "https://api.releasebits.com/?access_token=some-api-token"
 ```
 
-> Make sure to replace `meowmeowmeow` with your API key.
+> Make sure to replace `some-api-token` with your API key.
 
-Kittn uses API keys to allow access to the API. You can register a new Kittn API key at our [developer portal](http://example.com/developers).
+ReleaseBits uses API tokens to allow access to the API. You can register a new API token [here](/account/tokens).
 
-Kittn expects for the API key to be included in all API requests to the server in a header that looks like the following:
+ReleaseBits expects for the API key to be included in all API requests to the server in a header that looks like the following:
 
-`Authorization: meowmeowmeow`
+`Authorization: Bearer some-api-token`
+
+For scripting convenience, you can alternatively specify the token as the `access_token` URL parameter:
+
+`https://api.releasebits.com/?access_token=some-api-token`
 
 <aside class="notice">
-You must replace <code>meowmeowmeow</code> with your personal API key.
+You must replace <code>some-api-token</code> with your API token.
 </aside>
 
-# Kittens
 
-## Get All Kittens
+# Deployments
 
-```ruby
-require 'kittn'
+Denotes that a new version of a given component is has been put onto a live system. This should be recorded individually
+for all hosts and stages in order to have good resolution for metrics systems.
 
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get
-```
+We highly recommend setting at least `finished_at` from local system time, in order to keep timestamps in sync with your 
+logging systems
 
-```python
-import kittn
+## Creating A New Deployment
 
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get()
-```
+The only required field to create a new deployment event is the `version` field. However, it is a good idea to submit
+as much data as possible in oder to get the most of your 3rd party tooling. 
 
 ```shell
-curl "http://example.com/api/kittens"
-  -H "Authorization: meowmeowmeow"
+curl -XPOST "https://api.releasebits.com/components/component-slug/deployments/" \
+  -H "Authorization: Bearer some-api-token" \
+  -d ' {
+        "version": "v1.2.3",
+        "result": "success",
+        "stage": "staging",
+        "host": "host.example.com",
+        "code_name": "Funky Fünke",
+        "started_at": "2018-05-27T13:15:30.311Z",
+        "finished_at": "2018-05-27T13:15:31.191Z",
+        "meta_data": {
+          "user_id": "metauser",
+          "foo": "bar"
+        },
+        "commit_sha": "b927e3797fc56fb8bc093d59ee7a624dafddadd2",
+        "tag": "tag1.2.3",
+        "branch": "release" 
+     } '
 ```
 
-```javascript
-const kittn = require('kittn');
+```shell_session
+$ curl -XPOST "https://api.releasebits.com/components/component-slug/deployments"
+```
 
-let api = kittn.authorize('meowmeowmeow');
-let kittens = api.kittens.get();
+> On success the above command returns JSON structured like this along with `201` status:
+
+```json
+  { 
+    "id": "44b6a0d3-b7a0-4f26-b976-5fce52bfc4b9"
+  }
+```
+
+### HTTP Request
+
+`POST https://api.releasebits.com/components/{component-slug}/deployments/`
+
+### Query Parameters
+
+Parameter |  | Description
+--------- | ------- | -----------
+component_slug | (string) | The url slug of the component that is being deployed
+
+### Body Parameters
+
+Parameter |  | Description
+--------- | ------- | -----------
+version | (string, required)  | The version being deployed, e.g. `v1.2.3` 
+result |  (string)  |  The result as a string representation, e.g. `success`
+stage |  (string)  | The stage being deployed, e.g.`staging`
+host |  (string)  |  The individual host or node being deployed, e.g. `host.example.com`
+started_at | (string, iso8601)  |  The UTC date and time the deployment was started, e.g. `2018-04-23T18:25:43.511Z`
+finished_at |  (string, iso8601) |  The UTC date and time the deployment was finished, e.g. `2012-04-23T18:25:47.912Z`. Will be set by the system when left empty.
+commit_sha | (string) | The full VCS commit sha for the version being deployed, e.g. `b927e3797fc56fb8bc093d59ee7a624dafddadd2`
+code_name |  (string)  |  A code name for this release, e.g. `Funky Fünke`
+branch |  (string) | The VCS branch being deployed, e.g. `master`
+tag | (string) | The VCS tag relating to this deployment, e.g. `v1.2.3`
+meta_data | (object) | Arbitrary meta data to be stored along with this deployment
+
+## List Deployments
+
+```shell
+curl "https://api.releasebits.com/components/component-slug/deployments"
+  -H "Authorization: some-api-token"
+```
+
+```shell_session
+$ curl "https://api.releasebits.com/components/component-slug/deployments?access_token=some-api-token"
 ```
 
 > The above command returns JSON structured like this:
@@ -100,140 +164,50 @@ let kittens = api.kittens.get();
 ```json
 [
   {
-    "id": 1,
-    "name": "Fluffums",
-    "breed": "calico",
-    "fluffiness": 6,
-    "cuteness": 7
+    "id": "44b6a0d3-b7a0-4f26-b976-5fce52bfc4b9",
+    "version": "v1.2.3",
+    "result": "success",
+    "stage": "staging",
+    "host": "host.example.com",
+    "code_name": "Funky Fünke",
+    "started_at": "2018-05-27T13:15:30.311Z",
+    "finished_at": "2018-05-27T13:15:31.191Z",
+    "meta_data": {
+      "user_id": "metauser",
+      "foo": "bar"
+    },
+    "commit_sha": "b927e3797fc56fb8bc093d59ee7a624dafddadd2",
+    "tag": "tag1.2.3",
+    "branch": "release" 
   },
   {
-    "id": 2,
-    "name": "Max",
-    "breed": "unknown",
-    "fluffiness": 5,
-    "cuteness": 10
+     "id": "0ac5875c-e404-47b2-a72d-91760f15e1a2",
+    "version": "v1.2.4",
+    "result": "success",
+    "stage": "staging",
+    "host": "host.example.com",
+    "code_name": "Funky Fünke",
+    "started_at": "2018-05-27T14:11:13.311Z",
+    "finished_at": "2018-05-27T14:12:10.118Z",
+    "meta_data": {
+      "user_id": "metauser",
+      "foo": "bar"
+    },
+    "commit_sha": "b927e3797fc56fb8bc093d59ee7a624dafddadd2",
+    "tag": "tag1.2.4",
+    "branch": "release" 
   }
 ]
 ```
 
-This endpoint retrieves all kittens.
+This endpoint retrieves all deployments for a given component.
 
 ### HTTP Request
 
-`GET http://example.com/api/kittens`
+`GET https://api.releasebits.com/components/{component-slug}/deployments`
 
 ### Query Parameters
 
-Parameter | Default | Description
+Parameter |  | Description
 --------- | ------- | -----------
-include_cats | false | If set to true, the result will also include cats.
-available | true | If set to false, the result will include kittens that have already been adopted.
-
-<aside class="success">
-Remember — a happy kitten is an authenticated kitten!
-</aside>
-
-## Get a Specific Kitten
-
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get(2)
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get(2)
-```
-
-```shell
-curl "http://example.com/api/kittens/2"
-  -H "Authorization: meowmeowmeow"
-```
-
-```javascript
-const kittn = require('kittn');
-
-let api = kittn.authorize('meowmeowmeow');
-let max = api.kittens.get(2);
-```
-
-> The above command returns JSON structured like this:
-
-```json
-{
-  "id": 2,
-  "name": "Max",
-  "breed": "unknown",
-  "fluffiness": 5,
-  "cuteness": 10
-}
-```
-
-This endpoint retrieves a specific kitten.
-
-<aside class="warning">Inside HTML code blocks like this one, you can't use Markdown, so use <code>&lt;code&gt;</code> blocks to denote code.</aside>
-
-### HTTP Request
-
-`GET http://example.com/kittens/<ID>`
-
-### URL Parameters
-
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to retrieve
-
-## Delete a Specific Kitten
-
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.delete(2)
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-api.kittens.delete(2)
-```
-
-```shell
-curl "http://example.com/api/kittens/2"
-  -X DELETE
-  -H "Authorization: meowmeowmeow"
-```
-
-```javascript
-const kittn = require('kittn');
-
-let api = kittn.authorize('meowmeowmeow');
-let max = api.kittens.delete(2);
-```
-
-> The above command returns JSON structured like this:
-
-```json
-{
-  "id": 2,
-  "deleted" : ":("
-}
-```
-
-This endpoint deletes a specific kitten.
-
-### HTTP Request
-
-`DELETE http://example.com/kittens/<ID>`
-
-### URL Parameters
-
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to delete
-
+component_slug | (string) | The url slug of the component that is being deployed
